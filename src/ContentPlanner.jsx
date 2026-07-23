@@ -1,15 +1,16 @@
 import { useState, useMemo } from "react";
 import {
   Calendar, Instagram, Youtube, Linkedin, Twitter, Music2, Plus, X,
-  Sparkles, Clock, Hash, FileText, Repeat2,
+  Sparkles, Clock, Hash, FileText,
   ChevronLeft, ChevronRight, Trash2, Wand2,
-  BarChart3, Download
+  BarChart3, Download, Menu, ChevronRight as ChevronRightIcon,
+  Share2
 } from "lucide-react";
 // Add these new imports
 import AIGenerator from './components/AIGenerator';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ExportPanel from './components/ExportPanel';
-
+import RepurposeHub from './components/RepurposeHub';
 
 const PLATFORMS = {
   instagram: { label: "Instagram", icon: Instagram, color: "#B5502F" },
@@ -91,11 +92,11 @@ export default function ContentPlanner() {
   const [platformFilter, setPlatformFilter] = useState("all");
   const [editingItem, setEditingItem] = useState(null);
   const [ideaPlatform, setIdeaPlatform] = useState("instagram");
-  const [repurposeText, setRepurposeText] = useState("");
-  const [repurposeOut, setRepurposeOut] = useState(null);
   const [scriptTopic, setScriptTopic] = useState("");
   const [scriptOut, setScriptOut] = useState(null);
   const [toast, setToast] = useState(null);
+
+  const [navOpen, setNavOpen] = useState(true);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 1800); };
 
@@ -153,33 +154,33 @@ export default function ContentPlanner() {
     showToast(`Added "${idea.title}" to ${fmtDate(d)}`);
   }
 
-  function generateRepurpose() {
-    if (!repurposeText.trim()) return;
-    const base = repurposeText.trim();
-    const shortLine = base.length > 90 ? base.slice(0, 87) + "…" : base;
-    setRepurposeOut({
-      instagram: {
-        format: "Carousel (5–7 slides)",
-        content: `Slide 1 — Hook: "${shortLine}"\nSlide 2–5: break the core idea into one point per slide, one sentence each.\nSlide 6: key takeaway, bolded.\nSlide 7: CTA — "Save this + follow for more."`
-      },
-      youtube: {
-        format: "Short (30–45s)",
-        content: `Cold open on the single strongest claim from the piece.\nCut to 2–3 quick supporting beats, jump cuts, on-screen text for each.\nEnd on the takeaway line, spoken directly to camera.`
-      },
-      linkedin: {
-        format: "Text post",
-        content: `Open with a 1-line contrarian or personal framing of: "${shortLine}"\nFollow with 3 short paragraphs expanding the idea, one insight per paragraph.\nClose with a question to invite comments.`
-      },
-      twitter: {
-        format: "Thread (5–8 tweets)",
-        content: `Tweet 1: the hook, standalone and punchy.\nTweets 2–6: one idea per tweet, numbered.\nFinal tweet: summary + link back to the full piece.`
-      },
-      tiktok: {
-        format: "Short/Reel (15–30s)",
-        content: `Text overlay states the hook in the first 2 seconds.\nQuick cuts illustrating each point, captions burned in.\nEnd card: "follow for part 2" or similar loop-back CTA.`
-      },
-    });
-  }
+  // function generateRepurpose() {
+  //   if (!repurposeText.trim()) return;
+  //   const base = repurposeText.trim();
+  //   const shortLine = base.length > 90 ? base.slice(0, 87) + "…" : base;
+  //   setRepurposeOut({
+  //     instagram: {
+  //       format: "Carousel (5–7 slides)",
+  //       content: `Slide 1 — Hook: "${shortLine}"\nSlide 2–5: break the core idea into one point per slide, one sentence each.\nSlide 6: key takeaway, bolded.\nSlide 7: CTA — "Save this + follow for more."`
+  //     },
+  //     youtube: {
+  //       format: "Short (30–45s)",
+  //       content: `Cold open on the single strongest claim from the piece.\nCut to 2–3 quick supporting beats, jump cuts, on-screen text for each.\nEnd on the takeaway line, spoken directly to camera.`
+  //     },
+  //     linkedin: {
+  //       format: "Text post",
+  //       content: `Open with a 1-line contrarian or personal framing of: "${shortLine}"\nFollow with 3 short paragraphs expanding the idea, one insight per paragraph.\nClose with a question to invite comments.`
+  //     },
+  //     twitter: {
+  //       format: "Thread (5–8 tweets)",
+  //       content: `Tweet 1: the hook, standalone and punchy.\nTweets 2–6: one idea per tweet, numbered.\nFinal tweet: summary + link back to the full piece.`
+  //     },
+  //     tiktok: {
+  //       format: "Short/Reel (15–30s)",
+  //       content: `Text overlay states the hook in the first 2 seconds.\nQuick cuts illustrating each point, captions burned in.\nEnd card: "follow for part 2" or similar loop-back CTA.`
+  //     },
+  //   });
+  // }
 
   function generateScript() {
     if (!scriptTopic.trim()) return;
@@ -207,11 +208,12 @@ export default function ContentPlanner() {
     { id: "calendar", label: "Calendar", icon: Calendar },
     { id: "ideas", label: "Idea Bank", icon: Sparkles },
     { id: "script", label: "Script Builder", icon: FileText },
-    { id: "repurpose", label: "Repurpose", icon: Repeat2 },
+    { id: "repurpose", label: "Repurpose Hub", icon: Share2 },
     { id: "schedule", label: "Best Times", icon: Clock },
     { id: "ai", label: "AI Generator", icon: Sparkles },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "export", label: "Export", icon: Download },
+    // { id: "youtube", label: "YT to Social", icon: Youtube },
   ];
 
   return (
@@ -222,6 +224,16 @@ export default function ContentPlanner() {
       {/* Header */}
       <header style={styles.header}>
         <div style={styles.headerLeft}>
+
+          <button
+            onClick={() => setNavOpen(!navOpen)}
+            style={styles.hamburgerBtn}
+            className="hamburger-btn"
+            aria-label="Toggle navigation"
+          >
+            <Menu size={20} color="#FFFFFF" />
+          </button>
+
           <div style={styles.logoMark}>CP</div>
           <div>
             <div style={styles.wordmark}>The Desk</div>
@@ -232,13 +244,19 @@ export default function ContentPlanner() {
           <Stat label="Ideas" value={totalIdeas} color="#5C7A6B" />
           <Stat label="Drafts" value={totalDraft} color="#B5502F" />
           <Stat label="Scheduled" value={totalScheduled} color="#2F5C8A" />
-          <Stat label="Published" value={totalPublished} color="#1E2320" />
+          <Stat label="Published" value={totalPublished} color="#8BC34A" />
         </div>
       </header>
 
       <div style={styles.body}>
         {/* Sidebar nav */}
-        <nav style={styles.nav}>
+        <nav style={{
+          ...styles.nav,
+          // display: navOpen ? 'flex' : 'none',
+          transform: navOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          // boxShadow: navOpen ? '2px 0 20px rgba(0,0,0,0.3)' : 'none',
+        }}>
           {NAV.map(n => {
             const Icon = n.icon;
             const active = view === n.id;
@@ -250,6 +268,7 @@ export default function ContentPlanner() {
               >
                 <Icon size={16} strokeWidth={2} />
                 <span>{n.label}</span>
+                {active && <span style={styles.navIndicator} />}
               </button>
             );
           })}
@@ -267,10 +286,34 @@ export default function ContentPlanner() {
               </button>
             );
           })}
+
+          {/* NEW: Mobile close button */}
+          <button
+            onClick={() => setNavOpen(false)}
+            style={styles.navCloseBtn}
+          >
+            <X size={18} />
+            Close Menu
+          </button>
         </nav>
 
         {/* Main panel */}
-        <main style={styles.main}>
+        <main style={{
+          ...styles.main,
+          marginLeft: navOpen ? '220px' : '0',
+          transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          width: navOpen ? 'calc(100% - 220px)' : '100%',
+        }}>
+          {/* Toggle button when nav is closed */}
+          {!navOpen && (
+            <button
+              onClick={() => setNavOpen(true)}
+              style={styles.navOpenBtn}
+            >
+              <ChevronRightIcon size={18} color="#FFFFFF" />
+              <span style={styles.navOpenLabel}>Open Menu</span>
+            </button>
+          )}
           {view === "calendar" && (
             <CalendarView
               cursor={cursor} setCursor={setCursor} monthGrid={monthGrid}
@@ -289,7 +332,12 @@ export default function ContentPlanner() {
             <ScriptView scriptTopic={scriptTopic} setScriptTopic={setScriptTopic} scriptOut={scriptOut} generateScript={generateScript} />
           )}
           {view === "repurpose" && (
-            <RepurposeView repurposeText={repurposeText} setRepurposeText={setRepurposeText} repurposeOut={repurposeOut} generateRepurpose={generateRepurpose} />
+            <RepurposeHub
+              onAddToCalendar={(item) => {
+                setItems(prev => [...prev, item]);
+                showToast(`✅ ${item.platform} content added to calendar!`);
+              }}
+            />
           )}
           {view === "schedule" && <ScheduleView />}
           {view === "ai" && (
@@ -522,40 +570,40 @@ function ScriptView({ scriptTopic, setScriptTopic, scriptOut, generateScript }) 
 }
 
 /* ---------------- REPURPOSE ---------------- */
-function RepurposeView({ repurposeText, setRepurposeText, repurposeOut, generateRepurpose }) {
-  return (
-    <div>
-      <SectionHeader eyebrow="Transform" title="Repurpose" desc="Paste one idea, main point, or existing post — get a plan for every platform." />
-      <textarea
-        value={repurposeText}
-        onChange={e => setRepurposeText(e.target.value)}
-        placeholder="Paste your blog intro, video summary, or core idea here..."
-        style={{ ...styles.textarea, minHeight: 90 }}
-        rows={4}
-      />
-      <button style={{ ...styles.primaryBtn, marginTop: 10 }} onClick={generateRepurpose}><Repeat2 size={14} /> Repurpose across platforms</button>
+// function RepurposeView({ repurposeText, setRepurposeText, repurposeOut, generateRepurpose }) {
+//   return (
+//     <div>
+//       <SectionHeader eyebrow="Transform" title="Repurpose" desc="Paste one idea, main point, or existing post — get a plan for every platform." />
+//       <textarea
+//         value={repurposeText}
+//         onChange={e => setRepurposeText(e.target.value)}
+//         placeholder="Paste your blog intro, video summary, or core idea here..."
+//         style={{ ...styles.textarea, minHeight: 90 }}
+//         rows={4}
+//       />
+//       <button style={{ ...styles.primaryBtn, marginTop: 10 }} onClick={generateRepurpose}><Repeat2 size={14} /> Repurpose across platforms</button>
 
-      {repurposeOut && (
-        <div style={styles.repurposeGrid}>
-          {Object.entries(repurposeOut).map(([key, val]) => {
-            const P = PLATFORMS[key];
-            const Icon = P.icon;
-            return (
-              <div key={key} style={styles.repurposeCard}>
-                <div style={styles.repurposeCardHead}>
-                  <Icon size={15} color={P.color} />
-                  <span style={{ color: P.color, fontWeight: 600 }}>{P.label}</span>
-                  <span style={styles.repurposeFormatTag}>{val.format}</span>
-                </div>
-                <div style={styles.repurposeContent}>{val.content}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+//       {repurposeOut && (
+//         <div style={styles.repurposeGrid}>
+//           {Object.entries(repurposeOut).map(([key, val]) => {
+//             const P = PLATFORMS[key];
+//             const Icon = P.icon;
+//             return (
+//               <div key={key} style={styles.repurposeCard}>
+//                 <div style={styles.repurposeCardHead}>
+//                   <Icon size={15} color={P.color} />
+//                   <span style={{ color: P.color, fontWeight: 600 }}>{P.label}</span>
+//                   <span style={styles.repurposeFormatTag}>{val.format}</span>
+//                 </div>
+//                 <div style={styles.repurposeContent}>{val.content}</div>
+//               </div>
+//             );
+//           })}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 /* ---------------- SCHEDULE / BEST TIMES ---------------- */
 const BEST_TIMES = {
@@ -626,9 +674,12 @@ const styles = {
   },
   header: {
     display: "flex", justifyContent: "space-between", alignItems: "center",
-    padding: "18px 24px", borderBottom: "1px solid #3C4A45",
+    padding: "18px 24px", borderBottom: "1px solid #3C4A45", background: "#1E2320",
+    position: "fixed", left: 0, right: 0, top: 0, height: "78px",
+    boxSizing: "border-box",
+    zIndex: 1001,
   },
-  headerLeft: { display: "flex", alignItems: "center", gap: 12 },
+  headerLeft: { display: "flex", alignItems: "center", gap: 12, flexShrink: 0 },
   logoMark: {
     width: 38, height: 38, borderRadius: 8, background: "#5C7A6B", color: "#F4EFE4",
     display: "flex", alignItems: "center", justifyContent: "center",
@@ -636,24 +687,121 @@ const styles = {
   },
   wordmark: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 20, color: "#F4EFE4", lineHeight: 1.1 },
   tagline: { fontSize: 11, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.3 },
-  statRow: { display: "flex", gap: 22 },
+  statRow: { display: "flex", gap: 22, flexShrink: 0, },
   statItem: { textAlign: "center" },
   statValue: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 22, lineHeight: 1 },
   statLabel: { fontSize: 10, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
 
-  body: { display: "flex", minHeight: "calc(100vh - 78px)" },
-  nav: { width: 190, padding: "18px 12px", borderRight: "1px solid #3C4A45", display: "flex", flexDirection: "column", gap: 3 },
+  body: {
+    display: "flex", minHeight: "calc(100vh - 78px)", position: "relative",
+    overflow: "hidden",
+  },
+  nav: {
+    width: 220, minWidth: 220, padding: "18px 12px", borderRight: "1px solid #3C4A45", display: "flex", flexDirection: "column", gap: 3, position: 'fixed',
+    left: 0,
+    top: 78, bottom: 0,
+    background: '#1E2320',
+    zIndex: 100,
+    overflowY: 'auto',
+    transform: 'translateX(0)',
+    opacity: 1,
+    pointerEvents: 'auto',
+    transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+    boxShadow: "2px 0 20px rgba(0,0,0,0.3)",
+  },
+  navClosed: {
+    transform: 'translateX(-100%)',
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  navOpen: {
+    transform: 'translateX(0)',
+    opacity: 1,
+    pointerEvents: 'auto',
+  },
   navLabel: { fontSize: 10, color: "#7C8A83", fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px 2px" },
   navDivider: { height: 1, background: "#3C4A45", margin: "10px 4px" },
   navBtn: {
     display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", borderRadius: 6,
     background: "transparent", border: "none", color: "#B8C0BB", fontSize: 13, fontFamily: "'Inter', sans-serif",
-    cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+    cursor: "pointer", textAlign: "left", transition: "background 0.15s", position: 'relative', width: '100%',
   },
   navBtnActive: { background: "#2C3630", color: "#F4EFE4", fontWeight: 600 },
+  navIndicator: {
+    position: 'absolute',
+    right: 8,
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: '#5C7A6B',
+  },
   dot: { width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #9AA79C", display: "inline-block" },
-
-  main: { flex: 1, padding: "22px 28px", background: "#F4EFE4", borderRadius: "16px 0 0 0", overflowY: "auto" },
+  hamburgerBtn: {
+    background: '#2C3630',
+    border: '1px solid #3C4A45',
+    color: '#F4EFE4',
+    cursor: 'pointer',
+    padding: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 6,
+    transition: 'all 0.2s',
+    minWidth: '40px',
+    minHeight: '40px',
+    ':hover': {
+      background: '#2C3630',
+    },
+  },
+  navOpenBtn: {
+    position: 'fixed',
+    left: 16,
+    top: 90,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 14px',
+    background: '#1E2320',
+    border: '1px solid #3C4A45',
+    borderRadius: 8,
+    color: '#F4EFE4',
+    cursor: 'pointer',
+    zIndex: 99,
+    transition: 'all 0.2s',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 13,
+    ':hover': {
+      background: '#2C3630',
+      borderColor: '#5C7A6B',
+    },
+  },
+  navOpenLabel: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#FFFFFF'
+  },
+  navCloseBtn: {
+    display: 'flex', // Hidden on desktop, shown on mobile
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: '8px 12px',
+    marginTop: 'auto',
+    background: '#2C3630',
+    border: '1px solid #3C4A45',
+    borderRadius: 6,
+    color: '#F4EFE4',
+    cursor: 'pointer',
+    fontFamily: "'Inter', sans-serif",
+    fontSize: 12,
+    ':hover': {
+      background: '#3C4A45',
+    },
+  },
+  main: {
+    flex: 1, padding: "22px 28px", paddingTop: "100px", background: "#F4EFE4", borderRadius: "16px 0 0 0", overflowY: "auto", minHeight: 'calc(100vh - 78px)',
+    marginLeft: "220px", transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', width: 'calc(100% - 220px)', position: "relative",
+  },
 
   panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
   monthNavRow: { display: "flex", alignItems: "center", gap: 6 },
@@ -735,4 +883,6 @@ const styles = {
   scheduleTime: { fontSize: 13, color: "#1E2320", fontWeight: 600 },
   scheduleNote: { fontSize: 12, color: "#8A8375" },
   tipBox: { background: "#E4EBE6", borderRadius: 8, padding: 14, fontSize: 12.5, color: "#3C4A45", lineHeight: 1.5 },
+
+
 };
