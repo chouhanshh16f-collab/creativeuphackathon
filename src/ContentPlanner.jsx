@@ -4,20 +4,21 @@ import {
   Sparkles, Clock, Hash, FileText,
   ChevronLeft, ChevronRight, Trash2, Wand2,
   BarChart3, Download, Menu, ChevronRight as ChevronRightIcon,
-  Share2
+  Share2, DollarSign
 } from "lucide-react";
 // Add these new imports
 import AIGenerator from './components/AIGenerator';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import ExportPanel from './components/ExportPanel';
 import RepurposeHub from './components/RepurposeHub';
+import MonetizationDashboard from './components/MonetizationDashboard';
 
 const PLATFORMS = {
-  instagram: { label: "Instagram", icon: Instagram, color: "#B5502F" },
-  youtube: { label: "YouTube", icon: Youtube, color: "#8A3324" },
+  instagram: { label: "Instagram", icon: Instagram, color: "#be3d12" },
+  youtube: { label: "YouTube", icon: Youtube, color: "#c01818de" },
   linkedin: { label: "LinkedIn", icon: Linkedin, color: "#2F5C8A" },
-  tiktok: { label: "TikTok", icon: Music2, color: "#1E2320" },
-  twitter: { label: "X", icon: Twitter, color: "#3C4A45" },
+  tiktok: { label: "TikTok", icon: Music2, color: "#25F4EE" },
+  twitter: { label: "X", icon: Twitter, color: "#741fad" },
 };
 
 const FORMATS = ["Reel", "Carousel", "Static Post", "Long-form Video", "Short/Reel", "Article", "Thread", "Story"];
@@ -95,14 +96,19 @@ export default function ContentPlanner() {
   const [scriptTopic, setScriptTopic] = useState("");
   const [scriptOut, setScriptOut] = useState(null);
   const [toast, setToast] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
 
   const [navOpen, setNavOpen] = useState(true);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 1800); };
 
   const filteredItems = useMemo(
-    () => items.filter(i => platformFilter === "all" || i.platform === platformFilter),
-    [items, platformFilter]
+    () => items.filter(i => {
+      const platformMatch = platformFilter === "all" || i.platform === platformFilter;
+      const statusMatch = !filterStatus || i.status === filterStatus;
+      return platformMatch && statusMatch;
+    }),
+    [items, platformFilter, filterStatus]
   );
 
   const itemsByDate = useMemo(() => {
@@ -213,7 +219,7 @@ export default function ContentPlanner() {
     { id: "ai", label: "AI Generator", icon: Sparkles },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "export", label: "Export", icon: Download },
-    // { id: "youtube", label: "YT to Social", icon: Youtube },
+    { id: "monetization", label: "Monetization", icon: DollarSign },
   ];
 
   return (
@@ -241,10 +247,14 @@ export default function ContentPlanner() {
           </div>
         </div>
         <div style={styles.statRow}>
-          <Stat label="Ideas" value={totalIdeas} color="#5C7A6B" />
-          <Stat label="Drafts" value={totalDraft} color="#B5502F" />
-          <Stat label="Scheduled" value={totalScheduled} color="#2F5C8A" />
-          <Stat label="Published" value={totalPublished} color="#8BC34A" />
+          <Stat label="Ideas" value={totalIdeas} color="#5C7A6B" active={filterStatus === 'idea'}
+            onClick={() => setFilterStatus(filterStatus === 'idea' ? null : 'idea')} />
+          <Stat label="Drafts" value={totalDraft} color="#B5502F" active={filterStatus === 'draft'}
+            onClick={() => setFilterStatus(filterStatus === 'draft' ? null : 'draft')} />
+          <Stat label="Scheduled" value={totalScheduled} color="#2F5C8A" active={filterStatus === 'scheduled'}
+            onClick={() => setFilterStatus(filterStatus === 'scheduled' ? null : 'scheduled')} />
+          <Stat label="Published" value={totalPublished} color="#8BC34A" active={filterStatus === 'published'}
+            onClick={() => setFilterStatus(filterStatus === 'published' ? null : 'published')} />
         </div>
       </header>
 
@@ -314,6 +324,24 @@ export default function ContentPlanner() {
               <span style={styles.navOpenLabel}>Open Menu</span>
             </button>
           )}
+          {/* Filter Status Bar */}
+          {filterStatus && (
+            <div style={styles.filterStatusBar}>
+              <span style={styles.filterStatusLabel}>
+                🔍 Showing: <strong>{filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)}</strong>
+                {' '}({filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'})
+              </span>
+              <button
+                onClick={() => setFilterStatus(null)}
+                style={styles.filterClearBtn}
+              >
+                <X size={14} />
+                Clear Filter
+              </button>
+            </div>
+          )}
+
+
           {view === "calendar" && (
             <CalendarView
               cursor={cursor} setCursor={setCursor} monthGrid={monthGrid}
@@ -355,17 +383,31 @@ export default function ContentPlanner() {
           {view === "export" && (
             <ExportPanel items={items} />
           )}
+          {view === "monetization" && (
+            <MonetizationDashboard items={items} />
+          )}
         </main>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value, color }) {
+function Stat({ label, value, color, active, onClick }) {
   return (
-    <div style={styles.statItem}>
-      <div style={{ ...styles.statValue, color }}>{value}</div>
+    <div style={{
+      ...styles.statItem,
+      ...(active ? styles.statItemActive : {}),
+      ...(onClick ? { cursor: 'pointer' } : {}),
+    }}
+      onClick={onClick}
+    >
+      <div style={{
+        ...styles.statValue,
+        color: active ? color : color,
+        ...(active ? styles.statValueActive : {}),
+      }}>{value}</div>
       <div style={styles.statLabel}>{label}</div>
+      {active && <div style={styles.statActiveIndicator} />}
     </div>
   );
 }
@@ -688,201 +730,256 @@ const styles = {
   wordmark: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 20, color: "#F4EFE4", lineHeight: 1.1 },
   tagline: { fontSize: 11, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.3 },
   statRow: { display: "flex", gap: 22, flexShrink: 0, },
-  statItem: { textAlign: "center" },
-  statValue: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 22, lineHeight: 1 },
-  statLabel: { fontSize: 10, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
-
-  body: {
-    display: "flex", minHeight: "calc(100vh - 78px)", position: "relative",
-    overflow: "hidden",
-  },
-  nav: {
-    width: 220, minWidth: 220, padding: "18px 12px", borderRight: "1px solid #3C4A45", display: "flex", flexDirection: "column", gap: 3, position: 'fixed',
-    left: 0,
-    top: 78, bottom: 0,
-    background: '#1E2320',
-    zIndex: 100,
-    overflowY: 'auto',
-    transform: 'translateX(0)',
-    opacity: 1,
-    pointerEvents: 'auto',
-    transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    boxShadow: "2px 0 20px rgba(0,0,0,0.3)",
-  },
-  navClosed: {
-    transform: 'translateX(-100%)',
-    opacity: 0,
-    pointerEvents: 'none',
-  },
-  navOpen: {
-    transform: 'translateX(0)',
-    opacity: 1,
-    pointerEvents: 'auto',
-  },
-  navLabel: { fontSize: 10, color: "#7C8A83", fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px 2px" },
-  navDivider: { height: 1, background: "#3C4A45", margin: "10px 4px" },
-  navBtn: {
-    display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", borderRadius: 6,
-    background: "transparent", border: "none", color: "#B8C0BB", fontSize: 13, fontFamily: "'Inter', sans-serif",
-    cursor: "pointer", textAlign: "left", transition: "background 0.15s", position: 'relative', width: '100%',
-  },
-  navBtnActive: { background: "#2C3630", color: "#F4EFE4", fontWeight: 600 },
-  navIndicator: {
-    position: 'absolute',
-    right: 8,
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    background: '#5C7A6B',
-  },
-  dot: { width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #9AA79C", display: "inline-block" },
-  hamburgerBtn: {
-    background: '#2C3630',
-    border: '1px solid #3C4A45',
-    color: '#F4EFE4',
-    cursor: 'pointer',
-    padding: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 6,
-    transition: 'all 0.2s',
-    minWidth: '40px',
-    minHeight: '40px',
-    ':hover': {
-      background: '#2C3630',
-    },
-  },
-  navOpenBtn: {
-    position: 'fixed',
-    left: 16,
-    top: 90,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '10px 14px',
-    background: '#1E2320',
-    border: '1px solid #3C4A45',
+  statItem: {
+    textAlign: "center", padding: "6px 14px",
     borderRadius: 8,
-    color: '#F4EFE4',
-    cursor: 'pointer',
-    zIndex: 99,
-    transition: 'all 0.2s',
-    fontFamily: "'Inter', sans-serif",
-    fontSize: 13,
+    transition: "all 0.2s ease",
+    position: "relative",
+    cursor: "pointer",
     ':hover': {
+      background: "rgba(255,255,255,0.05)",
+    },
+  },
+    statItemActive: {
+      background: "rgba(255,255,255,0.08)",
+      boxShadow: "0 0 0 2px rgba(255,255,255,0.1)",
+    },
+    statValueActive: {
+      transform: "scale(1.1)",
+    },
+    statActiveIndicator: {
+      width: 4,
+      height: 4,
+      borderRadius: "50%",
+      margin: "4px auto 0",
+      transition: "all 0.3s ease",
+    },
+    statValue: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 22, lineHeight: 1, transition: "color 0.2s ease", },
+    statLabel: { fontSize: 10, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+
+    filterStatusBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      padding: "10px 16px",
+      background: "#E4EBE6",
+      borderRadius: 8,
+      marginBottom: 16,
+      border: "1px solid #5C7A6B",
+    },
+    filterStatusLabel: {
+      fontSize: 13,
+      color: "#3C4A45",
+      fontFamily: "'Inter', sans-serif",
+    },
+    filterClearBtn: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      padding: "4px 12px",
+      background: "transparent",
+      border: "1px solid #3C4A45",
+      borderRadius: 4,
+      fontSize: 12,
+      color: "#3C4A45",
+      cursor: "pointer",
+      transition: "all 0.2s ease",
+      ':hover': {
+        background: "#3C4A45",
+        color: "#F4EFE4",
+      },
+    },
+
+    body: {
+      display: "flex", minHeight: "calc(100vh - 78px)", position: "relative",
+      overflow: "hidden",
+    },
+    nav: {
+      width: 220, minWidth: 220, padding: "18px 12px", borderRight: "1px solid #3C4A45", display: "flex", flexDirection: "column", gap: 3, position: 'fixed',
+      left: 0,
+      top: 78, bottom: 0,
+      background: '#1E2320',
+      zIndex: 100,
+      overflowY: 'auto',
+      transform: 'translateX(0)',
+      opacity: 1,
+      pointerEvents: 'auto',
+      transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      boxShadow: "2px 0 20px rgba(0,0,0,0.3)",
+    },
+    navClosed: {
+      transform: 'translateX(-100%)',
+      opacity: 0,
+      pointerEvents: 'none',
+    },
+    navOpen: {
+      transform: 'translateX(0)',
+      opacity: 1,
+      pointerEvents: 'auto',
+    },
+    navLabel: { fontSize: 10, color: "#7C8A83", fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px 2px" },
+    navDivider: { height: 1, background: "#3C4A45", margin: "10px 4px" },
+    navBtn: {
+      display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", borderRadius: 6,
+      background: "transparent", border: "none", color: "#B8C0BB", fontSize: 13, fontFamily: "'Inter', sans-serif",
+      cursor: "pointer", textAlign: "left", transition: "background 0.15s", position: 'relative', width: '100%',
+    },
+    navBtnActive: { background: "#2C3630", color: "#F4EFE4", fontWeight: 600 },
+    navIndicator: {
+      position: 'absolute',
+      right: 8,
+      width: 6,
+      height: 6,
+      borderRadius: '50%',
+      background: '#5C7A6B',
+    },
+    dot: { width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #9AA79C", display: "inline-block" },
+    hamburgerBtn: {
       background: '#2C3630',
-      borderColor: '#5C7A6B',
+      border: '1px solid #3C4A45',
+      color: '#F4EFE4',
+      cursor: 'pointer',
+      padding: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 6,
+      transition: 'all 0.2s',
+      minWidth: '40px',
+      minHeight: '40px',
+      ':hover': {
+        background: '#2C3630',
+      },
     },
-  },
-  navOpenLabel: {
-    fontSize: 12,
-    fontWeight: 500,
-    color: '#FFFFFF'
-  },
-  navCloseBtn: {
-    display: 'flex', // Hidden on desktop, shown on mobile
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: '8px 12px',
-    marginTop: 'auto',
-    background: '#2C3630',
-    border: '1px solid #3C4A45',
-    borderRadius: 6,
-    color: '#F4EFE4',
-    cursor: 'pointer',
-    fontFamily: "'Inter', sans-serif",
-    fontSize: 12,
-    ':hover': {
-      background: '#3C4A45',
+    navOpenBtn: {
+      position: 'fixed',
+      left: 16,
+      top: 90,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: '10px 14px',
+      background: '#1E2320',
+      border: '1px solid #3C4A45',
+      borderRadius: 8,
+      color: '#F4EFE4',
+      cursor: 'pointer',
+      zIndex: 99,
+      transition: 'all 0.2s',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 13,
+      ':hover': {
+        background: '#2C3630',
+        borderColor: '#5C7A6B',
+      },
     },
-  },
-  main: {
-    flex: 1, padding: "22px 28px", paddingTop: "100px", background: "#F4EFE4", borderRadius: "16px 0 0 0", overflowY: "auto", minHeight: 'calc(100vh - 78px)',
-    marginLeft: "220px", transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', width: 'calc(100% - 220px)', position: "relative",
-  },
+    navOpenLabel: {
+      fontSize: 12,
+      fontWeight: 500,
+      color: '#FFFFFF'
+    },
+    navCloseBtn: {
+      display: 'flex', // Hidden on desktop, shown on mobile
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      padding: '8px 12px',
+      marginTop: 'auto',
+      background: '#2C3630',
+      border: '1px solid #3C4A45',
+      borderRadius: 6,
+      color: '#F4EFE4',
+      cursor: 'pointer',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: 12,
+      ':hover': {
+        background: '#3C4A45',
+      },
+    },
+    main: {
+      flex: 1, padding: "22px 28px", paddingTop: "100px", background: "#F4EFE4", borderRadius: "16px 0 0 0", overflowY: "auto", minHeight: 'calc(100vh - 78px)',
+      marginLeft: "220px", transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', width: 'calc(100% - 220px)', position: "relative",
+    },
 
-  panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  monthNavRow: { display: "flex", alignItems: "center", gap: 6 },
-  monthTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 24, color: "#1E2320", margin: 0 },
-  monthYear: { color: "#9AA79C", fontWeight: 400 },
-  iconBtn: { background: "#EAE3D3", border: "1px solid #DCD3BE", borderRadius: 6, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#1E2320" },
-  todayBtn: { background: "transparent", border: "1px solid #5C7A6B", color: "#5C7A6B", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", cursor: "pointer", fontWeight: 500 },
+    panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+    monthNavRow: { display: "flex", alignItems: "center", gap: 6 },
+    monthTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 24, color: "#1E2320", margin: 0 },
+    monthYear: { color: "#9AA79C", fontWeight: 400 },
+    iconBtn: { background: "#EAE3D3", border: "1px solid #DCD3BE", borderRadius: 6, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#1E2320" },
+    todayBtn: { background: "transparent", border: "1px solid #5C7A6B", color: "#5C7A6B", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", cursor: "pointer", fontWeight: 500 },
 
-  weekRow: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 },
-  weekDayLabel: { textAlign: "center", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 0" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
-  emptyCell: { minHeight: 92 },
-  dayCell: { minHeight: 92, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 },
-  dayCellToday: { borderColor: "#5C7A6B", borderWidth: 1.5, background: "#F1EEE0" },
-  dayCellTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-  dayNum: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#6B6459" },
-  dayNumToday: { color: "#5C7A6B", fontWeight: 700 },
-  addDayBtn: { background: "transparent", border: "none", color: "#B8AF9A", cursor: "pointer", padding: 2, display: "flex" },
-  dayItems: { display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" },
-  pill: { display: "flex", alignItems: "center", gap: 4, background: "#F4EFE4", border: "1px solid", borderRadius: 4, padding: "2px 5px", fontSize: 10, cursor: "pointer" },
-  pillText: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3C4A45" },
-  moreLabel: { fontSize: 9, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", paddingLeft: 3 },
+    weekRow: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 },
+    weekDayLabel: { textAlign: "center", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 0" },
+    grid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
+    emptyCell: { minHeight: 92 },
+    dayCell: { minHeight: 92, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 },
+    dayCellToday: { borderColor: "#5C7A6B", borderWidth: 1.5, background: "#F1EEE0" },
+    dayCellTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+    dayNum: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#6B6459" },
+    dayNumToday: { color: "#5C7A6B", fontWeight: 700 },
+    addDayBtn: { background: "transparent", border: "none", color: "#B8AF9A", cursor: "pointer", padding: 2, display: "flex" },
+    dayItems: { display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" },
+    pill: { display: "flex", alignItems: "center", gap: 4, background: "#F4EFE4", border: "1px solid", borderRadius: 4, padding: "2px 5px", fontSize: 10, cursor: "pointer" },
+    pillText: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3C4A45" },
+    moreLabel: { fontSize: 9, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", paddingLeft: 3 },
 
-  modalOverlay: { position: "fixed", inset: 0, background: "rgba(30,35,32,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 },
-  modalCard: { background: "#FBF8F1", borderRadius: 12, padding: 22, width: 440, maxWidth: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" },
-  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  modalFooter: { display: "flex", justifyContent: "space-between", marginTop: 16 },
-  titleInput: { width: "100%", fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, border: "none", borderBottom: "2px solid #E4DCC8", background: "transparent", padding: "4px 0 8px", marginBottom: 12, color: "#1E2320", outline: "none", boxSizing: "border-box" },
-  editorRow: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  selectInput: { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", boxSizing: "border-box" },
-  selectInputSmall: { padding: "6px 8px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, fontFamily: "'Inter', sans-serif", color: "#3C4A45" },
-  statusBtn: { display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, cursor: "pointer", color: "#3C4A45" },
-  fieldLabel: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#9AA79C", marginBottom: 5, display: "block" },
-  textarea: { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", marginBottom: 12, resize: "vertical", boxSizing: "border-box", outline: "none" },
-  dangerBtn: { display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid #C97B5F", color: "#B5502F", padding: "8px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer" },
-  primaryBtn: { display: "flex", alignItems: "center", gap: 6, background: "#5C7A6B", border: "none", color: "#F4EFE4", padding: "9px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" },
+    modalOverlay: { position: "fixed", inset: 0, background: "rgba(30,35,32,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 },
+    modalCard: { background: "#FBF8F1", borderRadius: 12, padding: 22, width: 440, maxWidth: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" },
+    modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+    modalFooter: { display: "flex", justifyContent: "space-between", marginTop: 16 },
+    titleInput: { width: "100%", fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, border: "none", borderBottom: "2px solid #E4DCC8", background: "transparent", padding: "4px 0 8px", marginBottom: 12, color: "#1E2320", outline: "none", boxSizing: "border-box" },
+    editorRow: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" },
+    selectInput: { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", boxSizing: "border-box" },
+    selectInputSmall: { padding: "6px 8px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, fontFamily: "'Inter', sans-serif", color: "#3C4A45" },
+    statusBtn: { display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, cursor: "pointer", color: "#3C4A45" },
+    fieldLabel: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#9AA79C", marginBottom: 5, display: "block" },
+    textarea: { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", marginBottom: 12, resize: "vertical", boxSizing: "border-box", outline: "none" },
+    dangerBtn: { display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid #C97B5F", color: "#B5502F", padding: "8px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer" },
+    primaryBtn: { display: "flex", alignItems: "center", gap: 6, background: "#5C7A6B", border: "none", color: "#F4EFE4", padding: "9px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" },
 
-  eyebrow: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 1, color: "#8A9B90", marginBottom: 4 },
-  sectionTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 26, color: "#1E2320", margin: "0 0 6px" },
-  sectionTitleSmall: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 18, color: "#1E2320", margin: "0 0 4px" },
-  sectionDesc: { fontSize: 13, color: "#7C7568", margin: 0, maxWidth: 560 },
+    eyebrow: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 1, color: "#8A9B90", marginBottom: 4 },
+    sectionTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 26, color: "#1E2320", margin: "0 0 6px" },
+    sectionTitleSmall: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 18, color: "#1E2320", margin: "0 0 4px" },
+    sectionDesc: { fontSize: 13, color: "#7C7568", margin: 0, maxWidth: 560 },
 
-  platformTabs: { display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" },
-  platformTab: { display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 20, border: "1px solid #DCD3BE", background: "transparent", fontSize: 12, fontWeight: 500, color: "#6B6459", cursor: "pointer" },
+    platformTabs: { display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" },
+    platformTab: { display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 20, border: "1px solid #DCD3BE", background: "transparent", fontSize: 12, fontWeight: 500, color: "#6B6459", cursor: "pointer" },
 
-  cardGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18, marginBottom: 28 },
-  ideaCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 4, padding: 16, boxShadow: "0 3px 10px rgba(30,35,32,0.08)", display: "flex", flexDirection: "column", gap: 8 },
-  ideaFormatTag: { alignSelf: "flex-start", fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#5C7A6B", background: "#E4EBE6", padding: "3px 8px", borderRadius: 3 },
-  ideaTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 16, color: "#1E2320", lineHeight: 1.25 },
-  ideaHook: { fontSize: 12, color: "#8A8375", fontStyle: "italic", lineHeight: 1.4 },
-  ideaAddBtn: { display: "flex", alignItems: "center", gap: 5, justifyContent: "center", marginTop: 4, background: "#1E2320", color: "#F4EFE4", border: "none", borderRadius: 5, padding: "7px 10px", fontSize: 11, cursor: "pointer", fontWeight: 500 },
+    cardGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18, marginBottom: 28 },
+    ideaCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 4, padding: 16, boxShadow: "0 3px 10px rgba(30,35,32,0.08)", display: "flex", flexDirection: "column", gap: 8 },
+    ideaFormatTag: { alignSelf: "flex-start", fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#5C7A6B", background: "#E4EBE6", padding: "3px 8px", borderRadius: 3 },
+    ideaTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 16, color: "#1E2320", lineHeight: 1.25 },
+    ideaHook: { fontSize: 12, color: "#8A8375", fontStyle: "italic", lineHeight: 1.4 },
+    ideaAddBtn: { display: "flex", alignItems: "center", gap: 5, justifyContent: "center", marginTop: 4, background: "#1E2320", color: "#F4EFE4", border: "none", borderRadius: 5, padding: "7px 10px", fontSize: 11, cursor: "pointer", fontWeight: 500 },
 
-  tagRow: { display: "flex", flexWrap: "wrap", gap: 8 },
-  hashtagChip: { display: "flex", alignItems: "center", gap: 3, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 14, padding: "5px 11px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B" },
+    tagRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+    hashtagChip: { display: "flex", alignItems: "center", gap: 3, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 14, padding: "5px 11px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B" },
 
-  inputRow: { display: "flex", gap: 10, marginBottom: 20 },
-  bigInput: { flex: 1, padding: "12px 14px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#FBF8F1", fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3C4A45", outline: "none" },
+    inputRow: { display: "flex", gap: 10, marginBottom: 20 },
+    bigInput: { flex: 1, padding: "12px 14px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#FBF8F1", fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3C4A45", outline: "none" },
 
-  scriptCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 22 },
-  scriptHookLine: { fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "#1E2320", marginBottom: 18, paddingBottom: 14, borderBottom: "1px dashed #DCD3BE" },
-  scriptBeats: { display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 },
-  scriptBeatRow: { display: "grid", gridTemplateColumns: "130px 1fr", gap: 14, alignItems: "start" },
-  scriptBeatLabel: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500, paddingTop: 2 },
-  scriptBeatText: { fontSize: 13, color: "#4B4640", lineHeight: 1.5 },
-  scriptCaptionBox: { background: "#F4EFE4", borderRadius: 8, padding: 14 },
-  scriptCaptionText: { fontSize: 13, color: "#3C4A45", lineHeight: 1.5 },
+    scriptCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 22 },
+    scriptHookLine: { fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "#1E2320", marginBottom: 18, paddingBottom: 14, borderBottom: "1px dashed #DCD3BE" },
+    scriptBeats: { display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 },
+    scriptBeatRow: { display: "grid", gridTemplateColumns: "130px 1fr", gap: 14, alignItems: "start" },
+    scriptBeatLabel: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500, paddingTop: 2 },
+    scriptBeatText: { fontSize: 13, color: "#4B4640", lineHeight: 1.5 },
+    scriptCaptionBox: { background: "#F4EFE4", borderRadius: 8, padding: 14 },
+    scriptCaptionText: { fontSize: 13, color: "#3C4A45", lineHeight: 1.5 },
 
-  repurposeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginTop: 22 },
-  repurposeCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 16 },
-  repurposeCardHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13 },
-  repurposeFormatTag: { marginLeft: "auto", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C" },
-  repurposeContent: { fontSize: 12.5, color: "#4B4640", lineHeight: 1.6, whiteSpace: "pre-line" },
+    repurposeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginTop: 22 },
+    repurposeCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 16 },
+    repurposeCardHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13 },
+    repurposeFormatTag: { marginLeft: "auto", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C" },
+    repurposeContent: { fontSize: 12.5, color: "#4B4640", lineHeight: 1.6, whiteSpace: "pre-line" },
 
-  scheduleList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 },
-  scheduleRow: { display: "grid", gridTemplateColumns: "150px 1fr 1.4fr", alignItems: "center", background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: "14px 18px", gap: 10 },
-  scheduleRowLeft: { display: "flex", alignItems: "center", gap: 8 },
-  scheduleRowMid: { display: "flex", flexDirection: "column", gap: 1 },
-  scheduleDay: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500 },
-  scheduleTime: { fontSize: 13, color: "#1E2320", fontWeight: 600 },
-  scheduleNote: { fontSize: 12, color: "#8A8375" },
-  tipBox: { background: "#E4EBE6", borderRadius: 8, padding: 14, fontSize: 12.5, color: "#3C4A45", lineHeight: 1.5 },
-
-
+    scheduleList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 },
+    scheduleRow: { display: "grid", gridTemplateColumns: "150px 1fr 1.4fr", alignItems: "center", background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: "14px 18px", gap: 10 },
+    scheduleRowLeft: { display: "flex", alignItems: "center", gap: 8 },
+    scheduleRowMid: { display: "flex", flexDirection: "column", gap: 1 },
+    scheduleDay: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500 },
+    scheduleTime: { fontSize: 13, color: "#1E2320", fontWeight: 600 },
+    scheduleNote: { fontSize: 12, color: "#8A8375" },
+    tipBox: { background: "#E4EBE6", borderRadius: 8, padding: 14, fontSize: 12.5, color: "#3C4A45", lineHeight: 1.5 },
+  
 };
