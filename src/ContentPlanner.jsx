@@ -1,0 +1,874 @@
+/* eslint-disable no-unused-vars */
+import { useState, useMemo } from "react";
+import {
+  Calendar, Camera, Link, MessageCircle, Music2, Plus, X,
+  Sparkles, Clock, Hash, FileText,Repeat2,
+  ChevronLeft, ChevronRight, Trash2, Wand2,
+  BarChart3, Download, Users , CheckCircle
+} from "lucide-react";
+// Add these new imports
+import AIGenerator from './components/AIGenerator';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import ExportPanel from './components/ExportPanel';
+import TeamManagement from './components/TeamManagement';
+import ApprovalWorkflow from './components/ApprovalWorkflow';
+import CommentSystem from './components/CommentSystem';
+
+const PLATFORMS = {
+  instagram: { label: "Instagram", icon: Camera, color: "#B5502F" },
+  youtube: { label: "YouTube", icon: Camera, color: "#8A3324" },
+  linkedin: { label: "LinkedIn", icon: Link, color: "#2F5C8A" },
+  tiktok: { label: "TikTok", icon: Music2, color: "#1E2320" },
+  twitter: { label: "X", icon: MessageCircle, color: "#3C4A45" },
+};
+
+const FORMATS = ["Reel", "Carousel", "Static Post", "Long-form Video", "Short/Reel", "Article", "Thread", "Story"];
+
+const IDEA_BANK = {
+  instagram: [
+    { title: "Behind-the-scenes of your process", format: "Reel", hook: "Nobody shows you THIS part of the process..." },
+    { title: "Before/after transformation", format: "Carousel", hook: "Swipe to see what changed in 30 days" },
+    { title: "3 mistakes beginners make", format: "Carousel", hook: "I wish someone told me this sooner" },
+    { title: "Quick tip in 15 seconds", format: "Reel", hook: "Save this for later ↓" },
+    { title: "Day in the life", format: "Story", hook: "Come along with me today" },
+  ],
+  youtube: [
+    { title: "Full tutorial / how-to", format: "Long-form Video", hook: "By the end of this video, you'll be able to..." },
+    { title: "I tried X for 30 days", format: "Long-form Video", hook: "Here's exactly what happened" },
+    { title: "Answering your questions", format: "Short/Reel", hook: "You asked, I'm answering" },
+    { title: "Tool/product comparison", format: "Long-form Video", hook: "Which one is actually worth your money?" },
+  ],
+  linkedin: [
+    { title: "Lesson from a recent failure", format: "Article", hook: "I got this wrong. Here's what I learned." },
+    { title: "Industry trend breakdown", format: "Thread", hook: "Everyone's talking about X. Here's what it actually means." },
+    { title: "Career milestone reflection", format: "Static Post", hook: "One year ago I couldn't have imagined this." },
+    { title: "Contrarian take on best practice", format: "Article", hook: "Unpopular opinion: X is overrated." },
+  ],
+  tiktok: [
+    { title: "Trend remix with your niche twist", format: "Short/Reel", hook: "Using this sound but make it [your topic]" },
+    { title: "POV skit", format: "Short/Reel", hook: "POV: you finally figured out..." },
+    { title: "Rapid-fire tips", format: "Short/Reel", hook: "5 things in 30 seconds, go" },
+  ],
+  twitter: [
+    { title: "Hot take thread", format: "Thread", hook: "Unpopular opinion:" },
+    { title: "Lessons learned this week", format: "Thread", hook: "This week taught me:" },
+    { title: "Resource roundup", format: "Thread", hook: "Bookmark this thread. Everything you need on X." },
+  ],
+};
+
+const HASHTAG_BANK = {
+  instagram: ["#contentcreator", "#smallbusiness", "#reelsinstagram", "#growthtips", "#creatoreconomy"],
+  youtube: ["#youtubetips", "#tutorial", "#howto", "#creator"],
+  linkedin: ["#leadership", "#careergrowth", "#futureofwork", "#personalbranding"],
+  tiktok: ["#fyp", "#learnontiktok", "#smallbiztok", "#tiktoktips"],
+  twitter: ["#buildinpublic", "#threads", "#growth"],
+};
+
+// const STORAGE_KEY_ITEMS = "content-planner:items";
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+
+const seedItems = () => {
+  const today = new Date();
+  const mk = (offset, platform, title, format, status) => {
+    const d = new Date(today); d.setDate(d.getDate() + offset);
+    return { id: uid(), date: fmtDate(d), platform, title, format, status, caption: "", hashtags: "" };
+  };
+  return [
+    mk(0, "instagram", "Studio setup tour", "Reel", "scheduled"),
+    mk(1, "linkedin", "What I learned shipping v2", "Article", "draft"),
+    mk(2, "youtube", "Full walkthrough: editing workflow", "Long-form Video", "idea"),
+    mk(4, "tiktok", "3 tools I can't work without", "Short/Reel", "idea"),
+    mk(-1, "instagram", "Client result carousel", "Carousel", "published"),
+  ];
+};
+
+export default function ContentPlanner() {
+  const [items, setItems] = useState(seedItems);
+  const [view, setView] = useState("calendar"); // calendar | ideas | repurpose | schedule
+  const [cursor, setCursor] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [platformFilter, setPlatformFilter] = useState("all");
+  const [editingItem, setEditingItem] = useState(null);
+  const [ideaPlatform, setIdeaPlatform] = useState("instagram");
+  const [repurposeText, setRepurposeText] = useState("");
+  const [repurposeOut, setRepurposeOut] = useState(null);
+  const [scriptTopic, setScriptTopic] = useState("");
+  const [scriptOut, setScriptOut] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 1800); };
+  const [expandedNav, setExpandedNav] = useState(null);
+  const [team, setTeam] = useState([
+  { id: 'user-1', name: 'Jane Smith', email: 'jane@example.com', role: 'admin', active: true, joinedAt: new Date().toISOString() },
+  { id: 'user-2', name: 'John Doe', email: 'john@example.com', role: 'editor', active: true, joinedAt: new Date().toISOString() },
+  { id: 'user-3', name: 'Emily Brown', email: 'emily@example.com', role: 'reviewer', active: true, joinedAt: new Date().toISOString() }
+]);
+const [comments, setComments] = useState({});
+const [currentUser, setCurrentUser] = useState('Jane Smith');
+
+
+  const filteredItems = useMemo(
+    () => items.filter(i => platformFilter === "all" || i.platform === platformFilter),
+    [items, platformFilter]
+  );
+
+  const itemsByDate = useMemo(() => {
+    const map = {};
+    filteredItems.forEach(i => { (map[i.date] ||= []).push(i); });
+    return map;
+  }, [filteredItems]);
+
+  const monthGrid = useMemo(() => {
+    const year = cursor.getFullYear(), month = cursor.getMonth();
+    const first = new Date(year, month, 1);
+    const startOffset = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < startOffset; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  }, [cursor]);
+
+  function addItem(date, platform) {
+    const item = { id: uid(), date: fmtDate(date), platform, title: "New idea", format: FORMATS[0], status: "idea", caption: "", hashtags: "" };
+    setItems(prev => [...prev, item]);
+    setEditingItem(item.id);
+  }
+
+  function updateItem(id, patch) {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+  }
+
+  function deleteItem(id) {
+    setItems(prev => prev.filter(i => i.id !== id));
+    setEditingItem(null);
+  }
+
+  function cycleStatus(id) {
+    const order = ["idea", "draft", "scheduled", "published"];
+    setItems(prev => prev.map(i => {
+      if (i.id !== id) return i;
+      const next = order[(order.indexOf(i.status) + 1) % order.length];
+      return { ...i, status: next };
+    }));
+  }
+
+  function addIdeaToCalendar(idea, platform) {
+    const d = selectedDate || new Date();
+    const item = { id: uid(), date: fmtDate(d), platform, title: idea.title, format: idea.format, status: "idea", caption: idea.hook, hashtags: "" };
+    setItems(prev => [...prev, item]);
+    showToast(`Added "${idea.title}" to ${fmtDate(d)}`);
+  }
+
+  function generateRepurpose() {
+    if (!repurposeText.trim()) return;
+    const base = repurposeText.trim();
+    const shortLine = base.length > 90 ? base.slice(0, 87) + "…" : base;
+    setRepurposeOut({
+      instagram: {
+        format: "Carousel (5–7 slides)",
+        content: `Slide 1 — Hook: "${shortLine}"\nSlide 2–5: break the core idea into one point per slide, one sentence each.\nSlide 6: key takeaway, bolded.\nSlide 7: CTA — "Save this + follow for more."`
+      },
+      youtube: {
+        format: "Short (30–45s)",
+        content: `Cold open on the single strongest claim from the piece.\nCut to 2–3 quick supporting beats, jump cuts, on-screen text for each.\nEnd on the takeaway line, spoken directly to camera.`
+      },
+      linkedin: {
+        format: "Text post",
+        content: `Open with a 1-line contrarian or personal framing of: "${shortLine}"\nFollow with 3 short paragraphs expanding the idea, one insight per paragraph.\nClose with a question to invite comments.`
+      },
+      twitter: {
+        format: "Thread (5–8 tweets)",
+        content: `Tweet 1: the hook, standalone and punchy.\nTweets 2–6: one idea per tweet, numbered.\nFinal tweet: summary + link back to the full piece.`
+      },
+      tiktok: {
+        format: "Short/Reel (15–30s)",
+        content: `Text overlay states the hook in the first 2 seconds.\nQuick cuts illustrating each point, captions burned in.\nEnd card: "follow for part 2" or similar loop-back CTA.`
+      },
+    });
+  }
+
+  function generateScript() {
+    if (!scriptTopic.trim()) return;
+    const topic = scriptTopic.trim();
+    setScriptOut({
+      topic,
+      hook: `Stop scrolling — here's why "${topic}" matters more than you think.`,
+      beats: [
+        { label: "Hook (0–3s)", text: `Open on the boldest claim or biggest mistake about ${topic}. No intro, no "hey guys."` },
+        { label: "Setup (3–10s)", text: `One sentence framing the problem or question the viewer has about ${topic}.` },
+        { label: "Value (10–40s)", text: `Deliver 2–3 concrete points. Use on-screen text for each point. Show, don't just tell — b-roll or demo if possible.` },
+        { label: "Payoff (40–50s)", text: `Land the single takeaway in one clear sentence. This is the line people will screenshot/quote.` },
+        { label: "CTA (50–60s)", text: `Direct ask: "Follow for part 2" / "Comment X for the template" / "Save this."` },
+      ],
+      caption: `${topic} — here's what actually works (and what doesn't). Save this for later.`,
+    });
+  }
+
+  const totalScheduled = items.filter(i => i.status === "scheduled").length;
+  const totalPublished = items.filter(i => i.status === "published").length;
+  const totalIdeas = items.filter(i => i.status === "idea").length;
+  const totalDraft = items.filter(i => i.status === "draft").length;
+
+  const NAV = [
+    { id: "calendar", label: "Calendar", icon: Calendar },
+    { id: "ideas", label: "Idea Bank", icon: Sparkles },
+    { id: "script", label: "Script Builder", icon: FileText },
+    { id: "repurpose", label: "Repurpose", icon: Repeat2 },
+    { id: "schedule", label: "Best Times", icon: Clock },
+    { id: "ai", label: "AI Generator", icon: Sparkles },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "export", label: "Export", icon: Download },
+    { 
+    id: "collaboration", 
+    label: "Collaboration", 
+    icon: Users,
+    subItems: [
+      { id: "team", label: "Team Management", icon: Users },
+      { id: "approval", label: "Approvals", icon: CheckCircle },
+      { id: "comments", label: "Comments", icon: MessageCircle }
+    ]
+  }
+  ];
+
+  return (
+    <div style={styles.app}>
+      <style>{fontImports}</style>
+      {toast && <div style={styles.toast}>{toast}</div>}
+
+      {/* Header */}
+      <header style={styles.header}>
+        <div style={styles.headerLeft}>
+          <div style={styles.logoMark}>CP</div>
+          <div>
+            <div style={styles.wordmark}>The Desk</div>
+            <div style={styles.tagline}>content planning &amp; production</div>
+          </div>
+        </div>
+        <div style={styles.statRow}>
+          <Stat label="Ideas" value={totalIdeas} color="#5C7A6B" />
+          <Stat label="Drafts" value={totalDraft} color="#B5502F" />
+          <Stat label="Scheduled" value={totalScheduled} color="#2F5C8A" />
+          <Stat label="Published" value={totalPublished} color="#1E2320" />
+        </div>
+      </header>
+
+      <div style={styles.body}>
+        {/* Sidebar nav */}
+         <nav style={styles.nav}>
+  {NAV.map(n => {
+    if (n.subItems) {
+      // This is a parent item with sub-items
+      const isExpanded = expandedNav === n.id;
+      const Icon = n.icon;
+      return (
+        <div key={n.id}>
+          <button
+            onClick={() => setExpandedNav(isExpanded ? null : n.id)}
+            style={{ 
+              ...styles.navBtn, 
+              ...(isExpanded ? styles.navBtnActive : {}),
+              justifyContent: 'space-between'
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <Icon size={16} strokeWidth={2} />
+              <span>{n.label}</span>
+            </span>
+            <span style={{ 
+              transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s'
+            }}>▶</span>
+          </button>
+          {isExpanded && (
+            <div style={styles.subNav}>
+              {n.subItems.map(sub => {
+                const SubIcon = sub.icon;
+                const active = view === sub.id;
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => {
+                      setView(sub.id);
+                      setExpandedNav(null); // Optional: collapse after selection
+                    }}
+                    style={{ 
+                      ...styles.navBtn, 
+                      ...(active ? styles.navBtnActive : {}),
+                      paddingLeft: 32
+                    }}
+                  >
+                    <SubIcon size={14} strokeWidth={2} />
+                    <span>{sub.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    // Regular nav item
+    const Icon = n.icon;
+    const active = view === n.id;
+    return (
+      <button
+        key={n.id}
+        onClick={() => setView(n.id)}
+        style={{ ...styles.navBtn, ...(active ? styles.navBtnActive : {}) }}
+      >
+        <Icon size={16} strokeWidth={2} />
+        <span>{n.label}</span>
+      </button>
+    );
+  })}
+  
+  <div style={styles.navDivider} />
+  <div style={styles.navLabel}>Filter platform</div>
+  <button onClick={() => setPlatformFilter("all")} style={{ ...styles.navBtn, ...(platformFilter === "all" ? styles.navBtnActive : {}) }}>
+    <span style={styles.dot} /><span>All platforms</span>
+  </button>
+  {Object.entries(PLATFORMS).map(([key, p]) => {
+    const Icon = p.icon;
+    return (
+      <button key={key} onClick={() => setPlatformFilter(key)} style={{ ...styles.navBtn, ...(platformFilter === key ? styles.navBtnActive : {}) }}>
+        <Icon size={16} color={p.color} strokeWidth={2} />
+        <span>{p.label}</span>
+      </button>
+    );
+  })}
+</nav>
+
+        {/* Main panel */}
+        <main style={styles.main}>
+          {view === "calendar" && (
+            <CalendarView
+              cursor={cursor} setCursor={setCursor} monthGrid={monthGrid}
+              itemsByDate={itemsByDate} selectedDate={selectedDate} setSelectedDate={setSelectedDate}
+              addItem={addItem} editingItem={editingItem} setEditingItem={setEditingItem}
+              updateItem={updateItem} deleteItem={deleteItem} cycleStatus={cycleStatus}
+            />
+          )}
+          {view === "ideas" && (
+            <IdeaBankView
+              ideaPlatform={ideaPlatform} setIdeaPlatform={setIdeaPlatform}
+              addIdeaToCalendar={addIdeaToCalendar} selectedDate={selectedDate}
+            />
+          )}
+          {view === "script" && (
+            <ScriptView scriptTopic={scriptTopic} setScriptTopic={setScriptTopic} scriptOut={scriptOut} generateScript={generateScript} />
+          )}
+          {view === "repurpose" && (
+            <RepurposeView repurposeText={repurposeText} setRepurposeText={setRepurposeText} repurposeOut={repurposeOut} generateRepurpose={generateRepurpose} />
+          )}
+          {view === "schedule" && <ScheduleView />}
+          {view === "ai" && (
+            <AIGenerator
+              onAddToCalendar={(item) => {
+                setItems(prev => [...prev, item]);
+                showToast(`✨ AI generated "${item.title}" added to calendar`);
+              }}
+              selectedDate={selectedDate}
+            />
+          )}
+          {view === "analytics" && (
+            <AnalyticsDashboard items={items} />
+          )}
+          {view === "export" && (
+            <ExportPanel items={items} />
+          )}
+
+          {view === "team" && (
+  <TeamManagement team={team} setTeam={setTeam} />
+)}
+{view === "approval" && (
+  <ApprovalWorkflow 
+    items={items} 
+    updateItem={updateItem} 
+    team={team} 
+  />
+)}
+{view === "comments" && (
+  <div>
+    <div style={styles.commentsHeader}>
+      <div>
+        <div style={styles.eyebrow}>Feedback</div>
+        <h2 style={styles.sectionTitle}>Content Comments</h2>
+        <p style={styles.sectionDesc}>Review and discuss content with your team</p>
+      </div>
+    </div>
+    <div style={styles.commentsList}>
+      {items.length === 0 ? (
+        <div style={styles.emptyState}>No content items to comment on</div>
+      ) : (
+        items.map(item => (
+          <div key={item.id} style={styles.commentCard}>
+            <div style={styles.commentCardHeader}>
+              <span style={styles.commentCardTitle}>{item.title}</span>
+              <span style={styles.platformTag}>{item.platform}</span>
+            </div>
+            <CommentSystem
+              itemId={item.id}
+              comments={comments}
+              setComments={setComments}
+              currentUser={currentUser}
+            />
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div style={styles.statItem}>
+      <div style={{ ...styles.statValue, color }}>{value}</div>
+      <div style={styles.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+/* ---------------- CALENDAR ---------------- */
+function CalendarView({ cursor, setCursor, monthGrid, itemsByDate, setSelectedDate, addItem, editingItem, setEditingItem, updateItem, deleteItem, cycleStatus }) {
+  const today = fmtDate(new Date());
+  return (
+    <div>
+      <div style={styles.panelHeader}>
+        <div style={styles.monthNavRow}>
+          <button style={styles.iconBtn} onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}><ChevronLeft size={18} /></button>
+          <h2 style={styles.monthTitle}>{monthNames[cursor.getMonth()]} <span style={styles.monthYear}>{cursor.getFullYear()}</span></h2>
+          <button style={styles.iconBtn} onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}><ChevronRight size={18} /></button>
+        </div>
+        <button style={styles.todayBtn} onClick={() => setCursor(new Date())}>Today</button>
+      </div>
+
+      <div style={styles.weekRow}>
+        {dayNames.map(d => <div key={d} style={styles.weekDayLabel}>{d}</div>)}
+      </div>
+
+      <div style={styles.grid}>
+        {monthGrid.map((d, idx) => {
+          if (!d) return <div key={idx} style={styles.emptyCell} />;
+          const key = fmtDate(d);
+          const dayItems = itemsByDate[key] || [];
+          const isToday = key === today;
+          return (
+            <div key={idx} style={{ ...styles.dayCell, ...(isToday ? styles.dayCellToday : {}) }} onClick={() => setSelectedDate(d)}>
+              <div style={styles.dayCellTop}>
+                <span style={{ ...styles.dayNum, ...(isToday ? styles.dayNumToday : {}) }}>{d.getDate()}</span>
+                <button style={styles.addDayBtn} onClick={(e) => { e.stopPropagation(); addItem(d, "instagram"); }}><Plus size={12} /></button>
+              </div>
+              <div style={styles.dayItems}>
+                {dayItems.slice(0, 3).map(i => {
+                  const P = PLATFORMS[i.platform];
+                  const Icon = P.icon;
+                  return (
+                    <div key={i.id} style={{ ...styles.pill, borderColor: P.color }} onClick={(e) => { e.stopPropagation(); setEditingItem(i.id); }}>
+                      <Icon size={10} color={P.color} />
+                      <span style={styles.pillText}>{i.title}</span>
+                      <StatusDot status={i.status} />
+                    </div>
+                  );
+                })}
+                {dayItems.length > 3 && <div style={styles.moreLabel}>+{dayItems.length - 3} more</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {editingItem && (
+        <ItemEditor
+          item={findItemGlobal(itemsByDate, editingItem)}
+          onClose={() => setEditingItem(null)}
+          onUpdate={updateItem}
+          onDelete={deleteItem}
+          onCycle={cycleStatus}
+        />
+      )}
+    </div>
+  );
+}
+
+function findItemGlobal(itemsByDate, id) {
+  for (const arr of Object.values(itemsByDate)) {
+    const found = arr.find(i => i.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function StatusDot({ status }) {
+  const colors = { idea: "#9AA79C", draft: "#B5502F", scheduled: "#2F5C8A", published: "#1E2320" };
+  return <span style={{ width: 6, height: 6, borderRadius: "50%", background: colors[status], flexShrink: 0 }} />;
+}
+
+function ItemEditor({ item, onClose, onUpdate, onDelete, onCycle }) {
+  if (!item) return null;
+  // const P = PLATFORMS[item.platform];
+  const statusLabels = { idea: "Idea", draft: "Draft", scheduled: "Scheduled", published: "Published" };
+  return (
+    <div style={styles.modalOverlay} onClick={onClose}>
+      <div style={styles.modalCard} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalHeader}>
+          <select value={item.platform} onChange={e => onUpdate(item.id, { platform: e.target.value })} style={styles.selectInput}>
+            {Object.entries(PLATFORMS).map(([k, p]) => <option key={k} value={k}>{p.label}</option>)}
+          </select>
+          <button style={styles.iconBtn} onClick={onClose}> <X size={16} /></button>
+        </div>
+        <input
+          value={item.title}
+          onChange={e => onUpdate(item.id, { title: e.target.value })}
+          style={styles.titleInput}
+          placeholder="Content title"
+        />
+        <div style={styles.editorRow}>
+          <select value={item.format} onChange={e => onUpdate(item.id, { format: e.target.value })} style={styles.selectInputSmall}>
+            {FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+          <input type="date" value={item.date} onChange={e => onUpdate(item.id, { date: e.target.value })} style={styles.selectInputSmall} />
+          <button style={styles.statusBtn} onClick={() => onCycle(item.id)}>
+            <StatusDot status={item.status} /> {statusLabels[item.status]}
+          </button>
+        </div>
+        <label style={styles.fieldLabel}>Caption / hook</label>
+        <textarea value={item.caption} onChange={e => onUpdate(item.id, { caption: e.target.value })} style={styles.textarea} rows={3} placeholder="Write your caption or hook..." />
+        <label style={styles.fieldLabel}>Hashtags</label>
+        <input value={item.hashtags} onChange={e => onUpdate(item.id, { hashtags: e.target.value })} style={styles.selectInput} placeholder="#tag1 #tag2 #tag3" />
+        <div style={styles.modalFooter}>
+          <button style={styles.dangerBtn} onClick={() => onDelete(item.id)}><Trash2 size={13} /> Delete</button>
+          <button style={styles.primaryBtn} onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- IDEA BANK ---------------- */
+function IdeaBankView({ ideaPlatform, setIdeaPlatform, addIdeaToCalendar, selectedDate }) {
+  const ideas = IDEA_BANK[ideaPlatform];
+  const tags = HASHTAG_BANK[ideaPlatform];
+  return (
+    <div>
+      <SectionHeader
+        eyebrow="Generate"
+        title="Idea Bank"
+        desc={`Ready-to-use concepts for ${PLATFORMS[ideaPlatform].label}${selectedDate ? ` — adding to ${fmtDate(selectedDate)}` : " — pick a calendar day first, or add to today"}.`}
+      />
+      <div style={styles.platformTabs}>
+        {Object.entries(PLATFORMS).map(([key, p]) => {
+          const Icon = p.icon;
+          const active = ideaPlatform === key;
+          return (
+            <button key={key} onClick={() => setIdeaPlatform(key)} style={{ ...styles.platformTab, ...(active ? { borderColor: p.color, color: p.color, background: "#FBF8F1" } : {}) }}>
+              <Icon size={14} /> {p.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={styles.cardGrid}>
+        {ideas.map((idea, idx) => (
+          <div key={idx} style={{ ...styles.ideaCard, transform: `rotate(${(idx % 2 === 0 ? -1 : 1) * (0.4 + (idx % 3) * 0.3)}deg)` }}>
+            <div style={styles.ideaFormatTag}>{idea.format}</div>
+            <div style={styles.ideaTitle}>{idea.title}</div>
+            <div style={styles.ideaHook}>"{idea.hook}"</div>
+            <button style={styles.ideaAddBtn} onClick={() => addIdeaToCalendar(idea, ideaPlatform)}>
+              <Plus size={13} /> Add to calendar
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <SectionHeader eyebrow="Suggested" title="Hashtags" desc="A starting set — swap in niche-specific tags for reach." small />
+      <div style={styles.tagRow}>
+        {tags.map(t => (
+          <span key={t} style={styles.hashtagChip}><Hash size={11} />{t.replace("#", "")}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- SCRIPT BUILDER ---------------- */
+function ScriptView({ scriptTopic, setScriptTopic, scriptOut, generateScript }) {
+  return (
+    <div>
+      <SectionHeader eyebrow="Build" title="Script Builder" desc="Turn a topic into a beat-by-beat short-video script." />
+      <div style={styles.inputRow}>
+        <input
+          value={scriptTopic}
+          onChange={e => setScriptTopic(e.target.value)}
+          placeholder="e.g. why most people fail at consistency"
+          style={styles.bigInput}
+          onKeyDown={e => e.key === "Enter" && generateScript()}
+        />
+        <button style={styles.primaryBtn} onClick={generateScript}><Wand2 size={14} /> Generate script</button>
+      </div>
+
+      {scriptOut && (
+        <div style={styles.scriptCard}>
+          <div style={styles.scriptHookLine}>"{scriptOut.hook}"</div>
+          <div style={styles.scriptBeats}>
+            {scriptOut.beats.map((b, i) => (
+              <div key={i} style={styles.scriptBeatRow}>
+                <div style={styles.scriptBeatLabel}>{b.label}</div>
+                <div style={styles.scriptBeatText}>{b.text}</div>
+              </div>
+            ))}
+          </div>
+          <div style={styles.scriptCaptionBox}>
+            <div style={styles.fieldLabel}>Suggested caption</div>
+            <div style={styles.scriptCaptionText}>{scriptOut.caption}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- REPURPOSE ---------------- */
+function RepurposeView({ repurposeText, setRepurposeText, repurposeOut, generateRepurpose }) {
+  return (
+    <div>
+      <SectionHeader eyebrow="Transform" title="Repurpose" desc="Paste one idea, main point, or existing post — get a plan for every platform." />
+      <textarea
+        value={repurposeText}
+        onChange={e => setRepurposeText(e.target.value)}
+        placeholder="Paste your blog intro, video summary, or core idea here..."
+        style={{ ...styles.textarea, minHeight: 90 }}
+        rows={4}
+      />
+      <button style={{ ...styles.primaryBtn, marginTop: 10 }} onClick={generateRepurpose}><Repeat2 size={14} /> Repurpose across platforms</button>
+
+      {repurposeOut && (
+        <div style={styles.repurposeGrid}>
+          {Object.entries(repurposeOut).map(([key, val]) => {
+            const P = PLATFORMS[key];
+            const Icon = P.icon;
+            return (
+              <div key={key} style={styles.repurposeCard}>
+                <div style={styles.repurposeCardHead}>
+                  <Icon size={15} color={P.color} />
+                  <span style={{ color: P.color, fontWeight: 600 }}>{P.label}</span>
+                  <span style={styles.repurposeFormatTag}>{val.format}</span>
+                </div>
+                <div style={styles.repurposeContent}>{val.content}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- SCHEDULE / BEST TIMES ---------------- */
+const BEST_TIMES = {
+  instagram: [{ day: "Tue–Thu", time: "11am–1pm & 7–9pm", note: "Reels peak in evening scroll windows" }],
+  youtube: [{ day: "Fri–Sat", time: "2–4pm", note: "Weekend leisure viewing" }],
+  linkedin: [{ day: "Tue–Thu", time: "8–10am", note: "Commute + start-of-workday browsing" }],
+  tiktok: [{ day: "Tue, Thu, Sun", time: "7–9pm", note: "Evening leisure scrolling" }],
+  twitter: [{ day: "Mon–Fri", time: "8–10am & 6–7pm", note: "News-cycle and commute windows" }],
+};
+
+function ScheduleView() {
+  return (
+    <div>
+      <SectionHeader eyebrow="Optimize" title="Best Publishing Times" desc="General benchmarks — validate against your own audience insights over time." />
+      <div style={styles.scheduleList}>
+        {Object.entries(PLATFORMS).map(([key, p]) => {
+          const Icon = p.icon;
+          const info = BEST_TIMES[key][0];
+          return (
+            <div key={key} style={styles.scheduleRow}>
+              <div style={styles.scheduleRowLeft}>
+                <Icon size={18} color={p.color} />
+                <span style={{ fontWeight: 600, color: "#1E2320" }}>{p.label}</span>
+              </div>
+              <div style={styles.scheduleRowMid}>
+                <span style={styles.scheduleDay}>{info.day}</span>
+                <span style={styles.scheduleTime}>{info.time}</span>
+              </div>
+              <div style={styles.scheduleNote}>{info.note}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={styles.tipBox}>
+        <strong>Rule of thumb:</strong> consistency beats perfect timing. Pick a cadence you can sustain — 3x/week beats a daily streak you abandon after two weeks.
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ eyebrow, title, desc, small }) {
+  return (
+    <div style={{ marginBottom: small ? 12 : 20 }}>
+      <div style={styles.eyebrow}>{eyebrow}</div>
+      <h2 style={small ? styles.sectionTitleSmall : styles.sectionTitle}>{title}</h2>
+      {desc && <p style={styles.sectionDesc}>{desc}</p>}
+    </div>
+  );
+}
+
+/* ---------------- STYLES ---------------- */
+const fontImports = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+`;
+
+const styles = {
+  app: {
+    fontFamily: "'Inter', sans-serif",
+    background: "#1E2320",
+    color: "#4B4640",
+    minHeight: "100%",
+    padding: 0,
+  },
+  toast: {
+    position: "fixed", top: 16, right: 16, background: "#1E2320", color: "#F4EFE4",
+    padding: "10px 16px", borderRadius: 6, fontSize: 13, fontFamily: "'Inter', sans-serif",
+    zIndex: 999, boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+  },
+  header: {
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    padding: "18px 24px", borderBottom: "1px solid #3C4A45",
+  },
+  headerLeft: { display: "flex", alignItems: "center", gap: 12 },
+  logoMark: {
+    width: 38, height: 38, borderRadius: 8, background: "#5C7A6B", color: "#F4EFE4",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 15, flexShrink: 0,
+  },
+  wordmark: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 20, color: "#F4EFE4", lineHeight: 1.1 },
+  tagline: { fontSize: 11, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 0.3 },
+  statRow: { display: "flex", gap: 22 },
+  statItem: { textAlign: "center" },
+  statValue: { fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 22, lineHeight: 1 },
+  statLabel: { fontSize: 10, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", marginTop: 2, textTransform: "uppercase", letterSpacing: 0.5 },
+
+  body: { display: "flex", minHeight: "calc(100vh - 78px)" },
+  nav: { width: 190, padding: "18px 12px", borderRight: "1px solid #3C4A45", display: "flex", flexDirection: "column", gap: 3 },
+  navLabel: { fontSize: 10, color: "#7C8A83", fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px 2px" },
+  navDivider: { height: 1, background: "#3C4A45", margin: "10px 4px" },
+  navBtn: {
+    display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", borderRadius: 6,
+    background: "transparent", border: "none", color: "#B8C0BB", fontSize: 13, fontFamily: "'Inter', sans-serif",
+    cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+  },
+  navBtnActive: { background: "#2C3630", color: "#F4EFE4", fontWeight: 600 },
+  dot: { width: 8, height: 8, borderRadius: "50%", border: "1.5px solid #9AA79C", display: "inline-block" },
+
+  main: { flex: 1, padding: "22px 28px", background: "#F4EFE4", borderRadius: "16px 0 0 0", overflowY: "auto" },
+
+  panelHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  monthNavRow: { display: "flex", alignItems: "center", gap: 6 },
+  monthTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 24, color: "#1E2320", margin: 0 },
+  monthYear: { color: "#9AA79C", fontWeight: 400 },
+  iconBtn: { background: "#EAE3D3", border: "1px solid #DCD3BE", borderRadius: 6, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#1E2320" },
+  todayBtn: { background: "transparent", border: "1px solid #5C7A6B", color: "#5C7A6B", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", cursor: "pointer", fontWeight: 500 },
+
+  weekRow: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 6 },
+  weekDayLabel: { textAlign: "center", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 0" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 },
+  emptyCell: { minHeight: 92 },
+  dayCell: { minHeight: 92, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: 6, cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 },
+  dayCellToday: { borderColor: "#5C7A6B", borderWidth: 1.5, background: "#F1EEE0" },
+  dayCellTop: { display: "flex", justifyContent: "space-between", alignItems: "center" },
+  dayNum: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#6B6459" },
+  dayNumToday: { color: "#5C7A6B", fontWeight: 700 },
+  addDayBtn: { background: "transparent", border: "none", color: "#B8AF9A", cursor: "pointer", padding: 2, display: "flex" },
+  dayItems: { display: "flex", flexDirection: "column", gap: 3, overflow: "hidden" },
+  pill: { display: "flex", alignItems: "center", gap: 4, background: "#F4EFE4", border: "1px solid", borderRadius: 4, padding: "2px 5px", fontSize: 10, cursor: "pointer" },
+  pillText: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#3C4A45" },
+  moreLabel: { fontSize: 9, color: "#9AA79C", fontFamily: "'IBM Plex Mono', monospace", paddingLeft: 3 },
+
+  modalOverlay: { position: "fixed", inset: 0, background: "rgba(30,35,32,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 },
+  modalCard: { background: "#FBF8F1", borderRadius: 12, padding: 22, width: 440, maxWidth: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)" },
+  modalHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  modalFooter: { display: "flex", justifyContent: "space-between", marginTop: 16 },
+  titleInput: { width: "100%", fontFamily: "'Fraunces', serif", fontSize: 19, fontWeight: 600, border: "none", borderBottom: "2px solid #E4DCC8", background: "transparent", padding: "4px 0 8px", marginBottom: 12, color: "#1E2320", outline: "none", boxSizing: "border-box" },
+  editorRow: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" },
+  selectInput: { width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", boxSizing: "border-box" },
+  selectInputSmall: { padding: "6px 8px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, fontFamily: "'Inter', sans-serif", color: "#3C4A45" },
+  statusBtn: { display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 6, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 12, cursor: "pointer", color: "#3C4A45" },
+  fieldLabel: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#9AA79C", marginBottom: 5, display: "block" },
+  textarea: { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#F4EFE4", fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3C4A45", marginBottom: 12, resize: "vertical", boxSizing: "border-box", outline: "none" },
+  dangerBtn: { display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid #C97B5F", color: "#B5502F", padding: "8px 14px", borderRadius: 6, fontSize: 12, cursor: "pointer" },
+  primaryBtn: { display: "flex", alignItems: "center", gap: 6, background: "#5C7A6B", border: "none", color: "#F4EFE4", padding: "9px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" },
+
+  eyebrow: { fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 1, color: "#8A9B90", marginBottom: 4 },
+  sectionTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 26, color: "#1E2320", margin: "0 0 6px" },
+  sectionTitleSmall: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 18, color: "#1E2320", margin: "0 0 4px" },
+  sectionDesc: { fontSize: 13, color: "#7C7568", margin: 0, maxWidth: 560 },
+
+  platformTabs: { display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" },
+  platformTab: { display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 20, border: "1px solid #DCD3BE", background: "transparent", fontSize: 12, fontWeight: 500, color: "#6B6459", cursor: "pointer" },
+
+  cardGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 18, marginBottom: 28 },
+  ideaCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 4, padding: 16, boxShadow: "0 3px 10px rgba(30,35,32,0.08)", display: "flex", flexDirection: "column", gap: 8 },
+  ideaFormatTag: { alignSelf: "flex-start", fontSize: 9, fontFamily: "'IBM Plex Mono', monospace", textTransform: "uppercase", letterSpacing: 0.5, color: "#5C7A6B", background: "#E4EBE6", padding: "3px 8px", borderRadius: 3 },
+  ideaTitle: { fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 16, color: "#1E2320", lineHeight: 1.25 },
+  ideaHook: { fontSize: 12, color: "#8A8375", fontStyle: "italic", lineHeight: 1.4 },
+  ideaAddBtn: { display: "flex", alignItems: "center", gap: 5, justifyContent: "center", marginTop: 4, background: "#1E2320", color: "#F4EFE4", border: "none", borderRadius: 5, padding: "7px 10px", fontSize: 11, cursor: "pointer", fontWeight: 500 },
+
+  tagRow: { display: "flex", flexWrap: "wrap", gap: 8 },
+  hashtagChip: { display: "flex", alignItems: "center", gap: 3, background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 14, padding: "5px 11px", fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B" },
+
+  inputRow: { display: "flex", gap: 10, marginBottom: 20 },
+  bigInput: { flex: 1, padding: "12px 14px", borderRadius: 8, border: "1px solid #DCD3BE", background: "#FBF8F1", fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3C4A45", outline: "none" },
+
+  scriptCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 22 },
+  scriptHookLine: { fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 19, color: "#1E2320", marginBottom: 18, paddingBottom: 14, borderBottom: "1px dashed #DCD3BE" },
+  scriptBeats: { display: "flex", flexDirection: "column", gap: 12, marginBottom: 18 },
+  scriptBeatRow: { display: "grid", gridTemplateColumns: "130px 1fr", gap: 14, alignItems: "start" },
+  scriptBeatLabel: { fontSize: 11, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500, paddingTop: 2 },
+  scriptBeatText: { fontSize: 13, color: "#4B4640", lineHeight: 1.5 },
+  scriptCaptionBox: { background: "#F4EFE4", borderRadius: 8, padding: 14 },
+  scriptCaptionText: { fontSize: 13, color: "#3C4A45", lineHeight: 1.5 },
+
+  repurposeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginTop: 22 },
+  repurposeCard: { background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 10, padding: 16 },
+  repurposeCardHead: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, fontSize: 13 },
+  repurposeFormatTag: { marginLeft: "auto", fontSize: 10, fontFamily: "'IBM Plex Mono', monospace", color: "#9AA79C" },
+  repurposeContent: { fontSize: 12.5, color: "#4B4640", lineHeight: 1.6, whiteSpace: "pre-line" },
+
+  scheduleList: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 },
+  scheduleRow: { display: "grid", gridTemplateColumns: "150px 1fr 1.4fr", alignItems: "center", background: "#FBF8F1", border: "1px solid #E4DCC8", borderRadius: 8, padding: "14px 18px", gap: 10 },
+  scheduleRowLeft: { display: "flex", alignItems: "center", gap: 8 },
+  scheduleRowMid: { display: "flex", flexDirection: "column", gap: 1 },
+  scheduleDay: { fontSize: 12, fontFamily: "'IBM Plex Mono', monospace", color: "#5C7A6B", fontWeight: 500 },
+  scheduleTime: { fontSize: 13, color: "#1E2320", fontWeight: 600 },
+  scheduleNote: { fontSize: 12, color: "#8A8375" },
+  tipBox: { background: "#E4EBE6", borderRadius: 8, padding: 14, fontSize: 12.5, color: "#3C4A45", lineHeight: 1.5 },
+  
+  commentsHeader: { marginBottom: 24 },
+  commentsList: { display: 'flex', flexDirection: 'column', gap: 16 },
+  commentCard: { background: '#FBF8F1', border: '1px solid #E4DCC8', borderRadius: 8, padding: 16 },
+  commentCardHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  commentCardTitle: { fontWeight: 600, color: '#1E2320' },
+  emptyState: { textAlign: 'center', padding: '40px 20px', color: '#9AA79C' },
+
+  subNav: { 
+  display: 'flex', 
+  flexDirection: 'column', 
+  gap: 2,
+  borderLeft: '2px solid #3C4A45',
+  marginLeft: 16,
+  paddingLeft: 4,},
+
+
+
+};
